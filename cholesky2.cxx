@@ -64,16 +64,20 @@ void cholesky(matrix<T>& A)
               A10(A), A11(A), A12(A),
               A20(A), A21(A), A22(A);
 
+    const int rs_plus_cs = A.rs + A.cs;
     const int m = A.m;
+
+    A21.ptr = A.ptr + BS*A.rs;
+    A22.ptr = A.ptr + BS*rs_plus_cs;
+
+    int m_BR = 0;
     for (int m_TL = 0;m_TL < m;m_TL += BS)
     {
         const int m_loc = std::min(BS, m-m_TL);
 
-        A11.ptr = A00.ptr +  m_TL*(A.rs + A.cs);
-        A21.ptr = A11.ptr + m_loc* A.rs;
-        A22.ptr = A11.ptr + m_loc*(A.rs + A.cs);
+        m_BR -= m_loc;
         A11.m = A11.n = A21.n = m_loc;
-        A21.m = A22.m = A22.n = m - (m_TL+m_loc);
+        A21.m = A22.m = A22.n = m_BR;
 
         // A11 = chol( A11 )
         cholesky<T>(*A11.ptr);
@@ -83,6 +87,10 @@ void cholesky(matrix<T>& A)
 
         // A22 = A22 - A21 * A21'
         herk<T, LOWER, NORMAL>(T(-1), A21, T(1), A22);
+
+        A11.ptr += m_loc*rs_plus_cs;
+        A21.ptr += m_loc*rs_plus_cs;
+        A22.ptr += m_loc*rs_plus_cs;
     }
 }
 

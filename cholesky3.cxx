@@ -14,6 +14,11 @@ struct matrix
     int n = 0;
     int rs = 0;
     int cs = 0;
+
+    matrix() {}
+
+    matrix(T* ptr, int m, int n, int rs, int cs)
+    : ptr(ptr), m(m), n(n), rs(rs), cs(cs) {}
 };
 
 /*
@@ -47,8 +52,6 @@ struct partition_2x2
 {
     T* ptr;
     const int m, rs, cs;
-    matrix<T> _ATL, _ATR,
-              _ABL, _ABR;
     int m_TL;
 
     /*
@@ -58,22 +61,16 @@ struct partition_2x2
      */
     partition_2x2(matrix<T>& A)
     : ptr(A.ptr), m(A.m), rs(A.rs), cs(A.cs),
-      _ATL(A), _ATR(A),
-      _ABL(A), _ABR(A),
       m_TL(Direction == TL_TO_BR ? 0 : A.m) {}
 
-    matrix<T>& ATL()
+    matrix<T> ATL()
     {
-        _ATL.m = _ATL.n = m_TL;
-        return _ATL;
+        return {ptr, m_TL, m_TL, rs, cs};
     }
 
-    matrix<T>& ABL()
+    matrix<T> ABL()
     {
-        _ABL.ptr = ptr + m_TL*rs;
-        _ABL.m = m - m_TL;
-        _ABL.n = m_TL;
-        return _ABL;
+        return {ptr + m_TL*rs, m - m_TL, m_TL, rs, cs};
     }
 
     /*
@@ -83,24 +80,19 @@ struct partition_2x2
      * may be necessary to use this function generically).
      */
     template <uplo_t Uplo>
-    matrix<T>& ABL_or_TR()
+    matrix<T> ABL_or_TR()
     {
         return (Uplo == LOWER ? ABL() : ATR());
     }
 
-    matrix<T>& ATR()
+    matrix<T> ATR()
     {
-        _ATR.ptr = ptr + m_TL*cs;
-        _ATR.m = m_TL;
-        _ATR.n = m - m_TL;
-        return _ATR;
+        return {ptr + m_TL*cs, m_TL, m - m_TL, rs, cs};
     }
 
-    matrix<T>& ABR()
+    matrix<T> ABR()
     {
-        _ABR.ptr = ptr + m_TL*rs + m_TL*cs;
-        _ABR.m = _ABR.n = m - m_TL;
-        return _ABR;
+        return {ptr + m_TL*rs + m_TL*cs, m - m_TL, m - m_TL, rs, cs};
     }
 
     /*
@@ -206,9 +198,6 @@ struct partition_3x3 : partition_3x3_base<T, Direction, BS>
 {
     typedef partition_3x3_base<T, Direction, BS> base;
 
-    matrix<T> _A00, _A01, _A02,
-              _A10, _A11, _A12,
-              _A20, _A21, _A22;
     using base::ptr;
     using base::m;
     using base::rs;
@@ -221,57 +210,44 @@ struct partition_3x3 : partition_3x3_base<T, Direction, BS>
      * copies of rs and cs. The other parameters will be set by the
      * individual accessor functions.
      */
-    partition_3x3(matrix<T>& A)
-    : base(A), _A00(A), _A01(A), _A02(A),
-               _A10(A), _A11(A), _A12(A),
-               _A20(A), _A21(A), _A22(A) {}
+    partition_3x3(matrix<T>& A) : base(A) {}
 
-    matrix<T>& A00()
+    matrix<T> A00()
     {
-        _A00.m = _A00.n = m_00;
-        return _A00;
+        return {ptr, m_00, m_00, rs, cs};
     }
 
-    matrix<T>& A10()
+    matrix<T> A10()
     {
-        _A10.ptr = ptr + m_00*rs;
-        _A10.m = m_11;
-        _A10.n = m_00;
-        return _A10;
+        return {ptr + m_00*rs, m_11, m_00, rs, cs};
     }
 
     /*
      * See notes on partition_2x2::ABL_or_TR.
      */
     template <uplo_t Uplo>
-    matrix<T>& A10_or_01()
+    matrix<T> A10_or_01()
     {
         return (Uplo == LOWER ? A10() : A01());
     }
 
-    matrix<T>& A20()
+    matrix<T> A20()
     {
-        _A20.ptr = ptr + m_00*rs + m_11*rs;
-        _A20.m = m - (m_00+m_11);
-        _A20.n = m_00;
-        return _A20;
+        return {ptr + (m_00+m_11)*rs, m - (m_00+m_11), m_00, rs, cs};
     }
 
     /*
      * See notes on partition_2x2::ABL_or_TR.
      */
     template <uplo_t Uplo>
-    matrix<T>& A20_or_02()
+    matrix<T> A20_or_02()
     {
         return (Uplo == LOWER ? A20() : A02());
     }
 
-    matrix<T>& A01()
+    matrix<T> A01()
     {
-        _A01.ptr = ptr + m_00*cs;
-        _A01.m = m_00;
-        _A01.n = m_11;
-        return _A01;
+        return {ptr + m_00*cs, m_00, m_11, rs, cs};
     }
 
     /*
@@ -288,54 +264,42 @@ struct partition_3x3 : partition_3x3_base<T, Direction, BS>
      * This version is used when BS != 1, and returns a matrix.
      */
     template <int _BS=BS>
-    typename std::enable_if<_BS!=1, matrix<T>&>::type A11()
+    typename std::enable_if<_BS!=1, matrix<T>>::type A11()
     {
-        _A11.ptr = ptr + m_00*rs + m_00*cs;
-        _A11.m = _A11.n = m_11;
-        return _A11;
+        return {ptr + m_00*rs + m_00*cs, m_11, m_11, rs, cs};
     }
 
     /*
      * See notes on partition_2x2::ABL_or_TR.
      */
-    matrix<T>& A21()
+    matrix<T> A21()
     {
-        _A21.ptr = ptr + m_00*(rs+cs) + m_11*rs;
-        _A21.m = m - (m_00+m_11);
-        _A21.n = m_11;
-        return _A21;
+        return {ptr + (m_00+m_11)*rs + m_00*cs, m - (m_00+m_11), m_11, rs, cs};
     }
 
     /*
      * See notes on partition_2x2::ABL_or_TR.
      */
     template <uplo_t Uplo>
-    matrix<T>& A21_or_12()
+    matrix<T> A21_or_12()
     {
         return (Uplo == LOWER ? A21() : A12());
     }
 
-    matrix<T>& A02()
+    matrix<T> A02()
     {
-        _A02.ptr = ptr + m_00*cs + m_11*cs;
-        _A02.m = m_00;
-        _A02.n = m - (m_00+m_11);
-        return _A02;
+        return {ptr + (m_00+m_11)*cs, m_00, m - (m_00+m_11), rs, cs};
     }
 
-    matrix<T>& A12()
+    matrix<T> A12()
     {
-        _A12.ptr = ptr + m_00*(rs+cs) + m_11*cs;
-        _A12.m = m_11;
-        _A12.n = m - (m_00+m_11);
-        return _A12;
+        return {ptr + m_00*rs + (m_00+m_11)*cs, m_11, m - (m_00+m_11), rs, cs};
     }
 
-    matrix<T>& A22()
+    matrix<T> A22()
     {
-        _A22.ptr = ptr + m_00*(rs+cs) + m_11*(rs+cs);
-        _A22.m = _A22.n = m - (m_00+m_11);
-        return _A22;
+        return {ptr + (m_00+m_11)*rs + (m_00+m_11)*cs,
+                m - (m_00+m_11), m - (m_00+m_11), rs, cs};
     }
 };
 
@@ -438,7 +402,7 @@ void cholesky(matrix<T>& A)
                  * We have to save local references to the partitions
                  * we'll need to avoid unecessary recomputation.
                  *
-                 * "auto&&" is necessary because A11 may be either a
+                 * "auto&" is necessary because A11 may be either a
                  * matrix or a scalar.
                  */
                 auto&& A00 = A_3x3.A00();
